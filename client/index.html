@@ -6,42 +6,57 @@
   <style>
     /* Global dark mode styles with flexbox and monospace font */
     body {
-      background-color: #121212;
+      background-color: #111;
       color: #ffffff;
       font-family: monospace;
       margin: 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
+      height: 100vh;
     }
     /* Container card */
     .container {
-      background-color: #1e1e1e;
-      border-radius: 10px;
-      padding: 20px;
+      background-color: #1a1a1a;
+      border-radius: 1rem;
+      padding: 15px;
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
       display: flex;
+      flex-flow:column;
+      gap:10px;
       flex-direction: column;
       align-items: center;
-      width: 90%;
-      max-width: 600px;
+      width: fit-content;
+      max-width: calc(100% - 30px - 2rem);
+      max-height: calc(100% - 30px - 2rem);
+    }
+    .row{
+      box-sizing:border-box;
+      width:100%;
+      justify-content:space-between;
+      display:flex;
+      flex-flow:row;
+      gap:10px;
+      border-radius:4px;
+      background-color:#2e2e2e;
+      padding:10px;
     }
     h1 {
       margin-bottom: 20px;
     }
     /* Form styling */
     form {
+      display:flex;
+      flex-flow:column;
+      gap:10px;
       width: 100%;
       display: flex;
       flex-direction: column;
-      margin-bottom: 10px;
     }
     input, button {
       padding: 10px;
-      margin: 10px 0;
       border: none;
-      border-radius: 5px;
+      border-radius: 4px;
       font-size: 16px;
     }
     input {
@@ -58,37 +73,39 @@
       background-color: #303f9f;
     }
     #status {
-      margin-top: 10px;
       font-size: 14px;
       color: #ffeb3b;
       text-align: center;
     }
     #metrics {
-      margin-top: 10px;
       font-size: 14px;
       color: #b2ff59;
       text-align: center;
     }
     img {
-      margin-top: 20px;
-      border-radius: 10px;
-      max-width: 100%;
+      border-radius: 4px;
       height: auto;
+      background:black;
+      min-height:1rem;
+      max-width:100%;
+      box-sizing:border-box;
+      text-align:center;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Stream Viewer</h1>
+    <img id="streamImg" alt="" />
+    <div class="row">
+      <div id="status">Disconnected</div>
+      <div id="metrics"></div>
+    </div>
     <form id="connectForm">
       <input type="text" id="serverUrl" placeholder="WebSocket Server URL" 
              value="wss://robot-signal.glitch.me" required />
       <input type="password" id="password" placeholder="Password" required />
       <button type="submit">Connect</button>
     </form>
-    <div id="status">Disconnected</div>
-    <div id="metrics"></div>
-    <img id="streamImg" alt="Video Stream will appear here" />
   </div>
 
   <script>
@@ -212,8 +229,10 @@
 
     // On image load, adjust its display size to match the incoming resolution.
     streamImg.onload = () => {
-      streamImg.style.width = streamImg.naturalWidth + "px";
-      streamImg.style.height = streamImg.naturalHeight + "px";
+      streamImg.style.width = "auto";
+      streamImg.style.height = "auto";
+      //streamImg.style.width = streamImg.naturalWidth + "px";
+      //streamImg.style.height = streamImg.naturalHeight + "px";
     };
   </script>
 </body>
