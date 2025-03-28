@@ -10,6 +10,7 @@ stream_forwarder.py
 - Reports latency back to the signaling server.
 - Implements exponential backoff on errors.
 - If video capture fails, the script restarts entirely to refresh the local video stream.
+- Optionally reduces image size to further decrease latency.
 """
 
 import os
@@ -105,7 +106,7 @@ async def handle_server_messages(websocket, state):
             send_ts = data.get("timestamp")
             if send_ts is not None:
                 now = time.time()
-                rtt_ms = (now - send_ts) * 1000.0
+                rtt_ms = (now - send_ts) * 500.0
                 state["latency_ms"] = rtt_ms
 
                 # Send a "latencyReport" to the server
@@ -116,16 +117,16 @@ async def handle_server_messages(websocket, state):
                 await websocket.send(json.dumps(latency_report))
 
                 # Adjust compression quality if latency is too high/low (keep within [10..95])
-                if rtt_ms > 200 and state["jpeg_quality"] > 10:
-                    state["jpeg_quality"] -= 10
+                if rtt_ms > 150 and state["jpeg_quality"] > 10:
+                    state["jpeg_quality"] -= 5
                     print(f"High latency ({rtt_ms:.1f} ms). Lowering JPEG quality to {state['jpeg_quality']}")
-                elif rtt_ms < 100 and state["jpeg_quality"] < 70:
-                    state["jpeg_quality"] += 10
+                elif rtt_ms < 50 and state["jpeg_quality"] < 50:
+                    state["jpeg_quality"] += 5
                     print(f"Low latency ({rtt_ms:.1f} ms). Raising JPEG quality to {state['jpeg_quality']}")
 
 async def send_frames(websocket, cap, state):
     """
-    Continuously read frames from the camera, encode them, and send to server.
+    Continuously read frames from the camera, resize and encode them, then send to server.
     Also periodically send 'ping' messages to measure latency.
     """
     frame_count = 0
@@ -137,11 +138,17 @@ async def send_frames(websocket, cap, state):
             # Force an exception to trigger a full restart of the script.
             raise RuntimeError("Video capture read failed.")
 
+        # Optionally resize frame to lower resolution for latency improvement
+        # Example: Reduce resolution by 50%
+        scale_percent = 50  # Adjust the percentage as needed
+        width = int(frame.shape[1] * scale_percent / 100)
+        height = int(frame.shape[0] * scale_percent / 100)
+        frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_AREA)
+
         # Encode frame as JPEG with current quality
         encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), state["jpeg_quality"]]
         ret, buffer = cv2.imencode('.jpg', frame, encode_param)
         if not ret:
-            # If encoding fails, skip this frame
             continue
 
         jpg_as_text = base64.b64encode(buffer).decode('utf-8')
