@@ -1,6 +1,5 @@
-// Load environment variables from .env file
+// server.js
 require('dotenv').config();
-
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
@@ -19,7 +18,10 @@ const wss = new WebSocket.Server({ server });
 let videoSource = null;
 const peers = new Set();
 
-// Data metrics counters
+// Keep track of the last reported source->server latency
+let sourceLatencyMs = 0;
+
+// Data metrics counters (for logging throughput)
 let totalSourceBytes = 0;
 let totalForwardedBytes = 0;
 let lastTime = Date.now();
@@ -30,17 +32,22 @@ setInterval(() => {
   const deltaTimeSec = (now - lastTime) / 1000;
   const sourceRate = totalSourceBytes / deltaTimeSec;
   const forwardedRate = totalForwardedBytes / deltaTimeSec;
-  console.log(`Data rate (last ${deltaTimeSec.toFixed(2)} sec): Source -> Server: ${sourceRate.toFixed(2)} B/s, Server -> Peers: ${forwardedRate.toFixed(2)} B/s`);
+  console.log(
+    `Data rate (last ${deltaTimeSec.toFixed(2)} sec): ` +
+    `Source -> Server: ${sourceRate.toFixed(2)} B/s, ` +
+    `Server -> Peers: ${forwardedRate.toFixed(2)} B/s`
+  );
   totalSourceBytes = 0;
   totalForwardedBytes = 0;
   lastTime = now;
 }, 5000);
 
-// On each new WebSocket connection...
 wss.on('connection', (ws) => {
-  // Initially mark the connection as not authenticated
   ws.isAuthenticated = false;
   ws.role = null;
+
+  // Each peer will store its own "server->peer" latency here
+  ws.serverToPeerLatencyMs = 0;
 
   ws.on('message', (message, isBinary) => {
     // If not authenticated, expect an authentication message first.
@@ -84,27 +91,59 @@ wss.on('connection', (ws) => {
         ws.send(JSON.stringify({ type: 'error', message: 'Invalid authentication format.' }));
         ws.close();
       }
-    } else {
-      // Already authenticated: if the client is the video source, forward the data to all connected peers.
-      if (ws.role === 'source') {
-        // Calculate byte size of the incoming message.
-        const bytes = isBinary ? message.length : Buffer.byteLength(message.toString(), 'utf8');
-        totalSourceBytes += bytes;
+      return; // Done processing if not authenticated
+    }
 
-        // Forward the message to each peer and track the forwarded bytes.
-        for (let peer of peers) {
-          if (peer.readyState === WebSocket.OPEN) {
-            peer.send(message, { binary: isBinary });
-            totalForwardedBytes += bytes;
-          }
+    // ---------- Already Authenticated ----------
+    if (ws.role === 'source') {
+      // Forward frames from source to peers
+      const bytes = isBinary
+        ? message.length
+        : Buffer.byteLength(message.toString(), 'utf8');
+      totalSourceBytes += bytes;
+
+      for (let peer of peers) {
+        if (peer.readyState === WebSocket.OPEN) {
+          peer.send(message, { binary: isBinary });
+          totalForwardedBytes += bytes;
         }
       }
-      // Additional commands from peers can be handled here if needed.
+    }
+
+    // Parse JSON to handle pings/latency reports
+    let data;
+    try {
+      data = JSON.parse(message.toString());
+    } catch (err) {
+      // Not JSON or not relevant, ignore
+      return;
+    }
+
+    if (data.type === 'ping') {
+      // Echo back with "pong" plus same timestamp
+      ws.send(JSON.stringify({
+        type: 'pong',
+        timestamp: data.timestamp
+      }));
+    } else if (data.type === 'latencyReport') {
+      // The sender is reporting its measured round-trip time
+      if (ws.role === 'source') {
+        // Update global source->server latency
+        sourceLatencyMs = data.latency;
+      } else if (ws.role === 'peer') {
+        // Update this peer's server->peer latency
+        ws.serverToPeerLatencyMs = data.latency;
+        // Send both latencies back to just this peer
+        ws.send(JSON.stringify({
+          type: 'metricsUpdate',
+          sourceToServerLatency: sourceLatencyMs,
+          serverToPeerLatency: ws.serverToPeerLatencyMs
+        }));
+      }
     }
   });
 
   ws.on('close', () => {
-    // Clean up on disconnect
     if (ws.role === 'source') {
       videoSource = null;
       console.log('Video source disconnected.');
@@ -116,7 +155,6 @@ wss.on('connection', (ws) => {
   });
 });
 
-// Start the server
 server.listen(port, () => {
   console.log(`Server is listening on port ${port}`);
 });
