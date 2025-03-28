@@ -8,13 +8,20 @@ stream_forwarder.py
 - Connects via websockets, sends authentication, streams frames from OpenCV.
 - Measures round-trip latency with ping/pong, dynamically adjusts JPEG quality.
 - Reports latency back to the signaling server.
-- Implements exponential backoff on errors, automatically reconnecting.
+- Implements exponential backoff on errors.
+- If video capture fails, the script restarts entirely to refresh the local video stream.
 """
 
 import os
 import sys
 import subprocess
 import json
+
+# Function to completely restart the script
+def restart_script():
+    print("Restarting the script entirely to refresh video capture...")
+    python = sys.executable
+    os.execv(python, [python] + sys.argv)
 
 # Auto-create and re-run in a virtual environment if not already in one.
 if sys.prefix == sys.base_prefix:
@@ -108,8 +115,7 @@ async def handle_server_messages(websocket, state):
                 }
                 await websocket.send(json.dumps(latency_report))
 
-                # Adjust compression quality if latency is too high/low
-                # Keep it within [10..95] for safety
+                # Adjust compression quality if latency is too high/low (keep within [10..95])
                 if rtt_ms > 200 and state["jpeg_quality"] > 10:
                     state["jpeg_quality"] -= 10
                     print(f"High latency ({rtt_ms:.1f} ms). Lowering JPEG quality to {state['jpeg_quality']}")
@@ -128,7 +134,7 @@ async def send_frames(websocket, cap, state):
         ret, frame = cap.read()
         if not ret:
             print("No frame received – end of stream or error.")
-            # Force an exception to trigger reconnect
+            # Force an exception to trigger a full restart of the script.
             raise RuntimeError("Video capture read failed.")
 
         # Encode frame as JPEG with current quality
@@ -158,16 +164,17 @@ async def stream_video(local_route, ws_endpoint, password):
     """
     Opens the local video feed, connects to the WebSocket, sends frames.
     Implements exponential backoff on errors and dynamic compression.
+    If video capture fails, the entire script is restarted.
     """
-    # Try to open capture once outside the loop, but if it fails, no point continuing
+    # Attempt to open the video capture. If it fails initially, exit.
     cap = cv2.VideoCapture(local_route)
     if not cap.isOpened():
         print("Error: Could not open video stream:", local_route)
         return
 
-    # Shared state
+    # Shared state for dynamic compression and latency metrics.
     state = {
-        "jpeg_quality": 70,   # Start with mid-range JPEG quality
+        "jpeg_quality": 70,   # Start with mid-range JPEG quality.
         "latency_ms": 0.0
     }
 
@@ -177,10 +184,10 @@ async def stream_video(local_route, ws_endpoint, password):
     while True:
         try:
             async with websockets.connect(ws_endpoint) as websocket:
-                # Reset backoff after a successful connection
+                # Reset backoff after a successful connection.
                 backoff_seconds = 3
 
-                # Send authentication
+                # Send authentication.
                 auth_msg = json.dumps({
                     "type": "auth",
                     "role": "source",
@@ -188,41 +195,45 @@ async def stream_video(local_route, ws_endpoint, password):
                 })
                 await websocket.send(auth_msg)
 
-                # Read and print server's initial response
+                # Read and print server's initial response.
                 response = await websocket.recv()
                 print("Server response:", response)
 
                 print("Starting video streaming...")
 
                 # Create two tasks:
-                # 1) Continuously read messages from server (handle_server_messages)
-                # 2) Continuously send frames to server (send_frames)
+                # 1) Read messages from the server.
+                # 2) Send frames to the server.
                 consumer_task = asyncio.create_task(handle_server_messages(websocket, state))
                 producer_task = asyncio.create_task(send_frames(websocket, cap, state))
 
-                # Wait until one of them finishes (which should only happen on error)
+                # Wait until one of them finishes (which should happen on error).
                 done, pending = await asyncio.wait(
                     [consumer_task, producer_task],
                     return_when=asyncio.FIRST_EXCEPTION
                 )
 
-                # If we exit early, cancel whatever's still running
+                # Cancel any pending tasks.
                 for task in pending:
                     task.cancel()
 
-                # Check if an exception was raised
+                # If an exception was raised, re-raise it.
                 for task in done:
                     if task.exception():
                         raise task.exception()
 
         except Exception as e:
-            # Any exception triggers a reconnection with backoff
             print("Exception during websocket communication:", e)
-            print(f"Attempting to reconnect in {backoff_seconds} seconds...")
-            await asyncio.sleep(backoff_seconds)
-            backoff_seconds = min(backoff_seconds * 2, max_backoff)
+            # If the exception is due to video capture failure, restart the entire script.
+            if "Video capture read failed" in str(e):
+                print("Detected video capture failure. Restarting script entirely...")
+                restart_script()
+            else:
+                print(f"Attempting to reconnect in {backoff_seconds} seconds...")
+                await asyncio.sleep(backoff_seconds)
+                backoff_seconds = min(backoff_seconds * 2, max_backoff)
 
-    # Cleanup
+    # Cleanup (this code is unlikely to be reached due to the infinite loop).
     cap.release()
 
 def main():
@@ -236,11 +247,10 @@ def main():
     if "password" not in config:
         config["password"] = input("Enter stream password: ").strip()
 
-    #input("Press Enter to start streaming and save configuration...")
     save_config(config)
     print("Configuration saved to", CONFIG_FILE)
 
-    # Use asyncio.run(...) to run the stream
+    # Start the streaming process.
     asyncio.run(stream_video(config["local_route"], config["ws_endpoint"], config["password"]))
 
 if __name__ == "__main__":
