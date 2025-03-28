@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Stream Viewer</title>
+  <meta name="viewport" content="height=device-height, initial-scale=1, maximum-scale=2, user-scalable=no">
   <style>
     /* Global dark mode styles with flexbox and monospace font */
     body {
@@ -11,9 +12,12 @@
       font-family: monospace;
       margin: 0;
       display: flex;
+      flex-flow:wrap;
       align-items: center;
       justify-content: center;
       height: 100vh;
+      width:100vw;
+      position:fixed;
     }
     /* Container card */
     .container {
@@ -30,6 +34,15 @@
       max-width: calc(100% - 30px - 2rem);
       max-height: calc(100% - 30px - 2rem);
     }
+    #metrics > p{
+      margin:unset!important;
+      font-size:0.5rem;
+    }
+    #status{
+      display:flex;
+      flex-flow:column;
+      justify-content:center;
+    }
     .row{
       box-sizing:border-box;
       width:100%;
@@ -40,6 +53,9 @@
       border-radius:4px;
       background-color:#2e2e2e;
       padding:10px;
+    }
+    .row > #metrics{
+      text-align:right;
     }
     h1 {
       margin-bottom: 20px;
@@ -85,6 +101,7 @@
     img {
       border-radius: 4px;
       height: auto;
+      display:none;
       background:black;
       min-height:1rem;
       max-width:100%;
@@ -136,7 +153,9 @@
       ws = new WebSocket(serverUrl);
 
       ws.onopen = () => {
-        statusDiv.innerText = 'Connected. Authenticating as peer...';
+        statusDiv.innerText = 'Authenticating...';
+        form.style.display = "none";
+        streamImg.style.display = "flex";
         // Send authentication
         const authMessage = {
           type: 'auth',
@@ -182,16 +201,17 @@
           // The server is telling us both latencies
           const sourceToServer = data.sourceToServerLatency.toFixed(1);
           const serverToPeer = data.serverToPeerLatency.toFixed(1);
-          metricsDiv.innerText = `Source→Server: ${sourceToServer} ms | Server→You: ${serverToPeer} ms`;
+          metricsDiv.innerHTML = `<p>Source→Server: ${sourceToServer}ms</p><p style="color:cornflowerblue;">Server→You: ${serverToPeer}ms</p>`;
         }
       };
 
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
+        form.style.display = "flex";
       };
 
       ws.onclose = () => {
-        statusDiv.innerText = 'Disconnected from server. Reconnecting...';
+        statusDiv.innerText = 'Reconnecting...';
         // Clear ping interval if any
         if (pingInterval) {
           clearInterval(pingInterval);
