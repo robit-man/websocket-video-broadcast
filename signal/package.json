@@ -1,0 +1,17 @@
+{
+  "name": "websocket-video-relay",
+  "version": "1.0.0",
+  "description": "A WebSocket server to receive video from a source and relay it to peers with password authentication.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.13.0",
+    "dotenv": "^16.0.3"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
