@@ -63,7 +63,12 @@
       color: #ffeb3b;
       text-align: center;
     }
-    /* The image will display using its natural resolution */
+    #metrics {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #b2ff59;
+      text-align: center;
+    }
     img {
       margin-top: 20px;
       border-radius: 10px;
@@ -76,70 +81,136 @@
   <div class="container">
     <h1>Stream Viewer</h1>
     <form id="connectForm">
-      <input type="text" id="serverUrl" placeholder="WebSocket Server URL (e.g. wss://robot-signal.glitch.me)" value="wss://robot-signal.glitch.me" required />
+      <input type="text" id="serverUrl" placeholder="WebSocket Server URL" 
+             value="wss://robot-signal.glitch.me" required />
       <input type="password" id="password" placeholder="Password" required />
       <button type="submit">Connect</button>
     </form>
     <div id="status">Disconnected</div>
+    <div id="metrics"></div>
     <img id="streamImg" alt="Video Stream will appear here" />
   </div>
+
   <script>
     const form = document.getElementById('connectForm');
     const statusDiv = document.getElementById('status');
+    const metricsDiv = document.getElementById('metrics');
     const streamImg = document.getElementById('streamImg');
-    
+
     let ws;
+    let reconnectTimer = null;
+    let pingInterval = null;
+    let lastPingTime = 0;
+
+    let savedServerUrl = '';
+    let savedPassword = '';
+
+    // Attempt to connect with given credentials.
+    function connect(serverUrl, password) {
+      // Clear any existing reconnect timer
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      if (ws) {
+        ws.close();
+      }
+
+      ws = new WebSocket(serverUrl);
+
+      ws.onopen = () => {
+        statusDiv.innerText = 'Connected. Authenticating as peer...';
+        // Send authentication
+        const authMessage = {
+          type: 'auth',
+          role: 'peer',
+          password: password
+        };
+        ws.send(JSON.stringify(authMessage));
+      };
+
+      ws.onmessage = (event) => {
+        // Handle incoming messages
+        let data;
+        try {
+          data = JSON.parse(event.data);
+        } catch (err) {
+          // If it's not JSON or an error occurred, ignore
+          return;
+        }
+
+        // If there's a 'frame' property, it's a JPEG from the source
+        if (data.frame) {
+          streamImg.src = "data:image/jpeg;base64," + data.frame;
+        }
+
+        // Handle typed messages
+        if (data.type === 'info' && data.message) {
+          statusDiv.innerText = data.message;
+        }
+        if (data.type === 'error' && data.message) {
+          statusDiv.innerText = "Error: " + data.message;
+        }
+        if (data.type === 'pong') {
+          // We got a pong; measure round-trip time
+          const now = performance.now();
+          const rttMs = now - data.timestamp;
+          // Now that we have rttMs, send a latencyReport
+          ws.send(JSON.stringify({
+            type: 'latencyReport',
+            latency: rttMs
+          }));
+        }
+        if (data.type === 'metricsUpdate') {
+          // The server is telling us both latencies
+          const sourceToServer = data.sourceToServerLatency.toFixed(1);
+          const serverToPeer = data.serverToPeerLatency.toFixed(1);
+          metricsDiv.innerText = `Source→Server: ${sourceToServer} ms | Server→You: ${serverToPeer} ms`;
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+
+      ws.onclose = () => {
+        statusDiv.innerText = 'Disconnected from server. Reconnecting...';
+        // Clear ping interval if any
+        if (pingInterval) {
+          clearInterval(pingInterval);
+          pingInterval = null;
+        }
+        // Attempt to reconnect in 3 seconds
+        reconnectTimer = setTimeout(() => {
+          connect(savedServerUrl, savedPassword);
+        }, 3000);
+      };
+
+      // Once connected & authenticated, start sending pings every ~3s
+      // We'll start the interval after authentication is confirmed
+      // (i.e., when we get an 'info' or something from the server).
+      // But for simplicity, we can start right away:
+      pingInterval = setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          // Send a ping with current timestamp
+          ws.send(JSON.stringify({
+            type: 'ping',
+            timestamp: performance.now()
+          }));
+        }
+      }, 3000);
+    }
 
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const serverUrl = document.getElementById('serverUrl').value;
       const password = document.getElementById('password').value;
-
-      if (ws) {
-        ws.close();
-      }
-      
-      ws = new WebSocket(serverUrl);
-
-      ws.onopen = () => {
-        statusDiv.innerText = 'Connected. Authenticating as peer...';
-        const authMessage = JSON.stringify({
-          type: 'auth',
-          role: 'peer',
-          password: password
-        });
-        ws.send(authMessage);
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data);
-          if (msg.frame) {
-            // Immediately dump the base64 JPEG into the <img> tag.
-            streamImg.src = "data:image/jpeg;base64," + msg.frame;
-          }
-          if (msg.type === "info" && msg.message) {
-            statusDiv.innerText = msg.message;
-          }
-          if (msg.type === "error" && msg.message) {
-            statusDiv.innerText = "Error: " + msg.message;
-          }
-        } catch (err) {
-          console.error('Error parsing message:', err);
-        }
-      };
-
-      ws.onerror = (error) => {
-        statusDiv.innerText = 'WebSocket error occurred.';
-        console.error('WebSocket error:', error);
-      };
-
-      ws.onclose = () => {
-        statusDiv.innerText = 'Disconnected from server.';
-      };
+      savedServerUrl = serverUrl;
+      savedPassword = password;
+      connect(serverUrl, password);
     });
 
-    // On image load, adjust its display size to match the incoming (natural) resolution.
+    // On image load, adjust its display size to match the incoming resolution.
     streamImg.onload = () => {
       streamImg.style.width = streamImg.naturalWidth + "px";
       streamImg.style.height = streamImg.naturalHeight + "px";
