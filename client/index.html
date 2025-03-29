@@ -1,259 +1,511 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Stream Viewer</title>
-  <meta name="viewport" content="height=device-height, initial-scale=1, maximum-scale=2, user-scalable=no">
-  <style>
-    /* Global dark mode styles with flexbox and monospace font */
-    body {
-      background-color: #111;
-      color: #ffffff;
-      font-family: monospace;
-      margin: 0;
-      display: flex;
-      flex-flow:wrap;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      width:100vw;
-      position:fixed;
-    }
-    /* Container card */
-    .container {
-      background-color: #1a1a1a;
-      border-radius: 1rem;
-      padding: 15px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-      display: flex;
-      flex-flow:column;
-      gap:10px;
-      flex-direction: column;
-      align-items: center;
-      width: fit-content;
-      max-width: calc(100% - 30px - 2rem);
-      max-height: calc(100% - 30px - 2rem);
-    }
-    #metrics > p{
-      margin:unset!important;
-      font-size:0.5rem;
-    }
-    #status{
-      display:flex;
-      flex-flow:column;
-      justify-content:center;
-    }
-    .row{
-      box-sizing:border-box;
-      width:100%;
-      justify-content:space-between;
-      display:flex;
-      flex-flow:row;
-      gap:10px;
-      border-radius:4px;
-      background-color:#2e2e2e;
-      padding:10px;
-    }
-    .row > #metrics{
-      text-align:right;
-    }
-    h1 {
-      margin-bottom: 20px;
-    }
-    /* Form styling */
-    form {
-      display:flex;
-      flex-flow:column;
-      gap:10px;
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-    }
-    input, button {
-      padding: 10px;
-      border: none;
-      border-radius: 4px;
-      font-size: 16px;
-    }
-    input {
-      background-color: #2e2e2e;
-      color: #ffffff;
-    }
-    button {
-      background-color: #3f51b5;
-      color: #ffffff;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-    }
-    button:hover {
-      background-color: #303f9f;
-    }
-    #status {
-      font-size: 14px;
-      color: #ffeb3b;
-      text-align: center;
-    }
-    #metrics {
-      font-size: 14px;
-      color: #b2ff59;
-      text-align: center;
-    }
-    img {
-      border-radius: 4px;
-      height: auto;
-      display:none;
-      background:black;
-      min-height:1rem;
-      max-width:100%;
-      box-sizing:border-box;
-      text-align:center;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <img id="streamImg" alt="" />
-    <div class="row">
-      <div id="status">Disconnected</div>
-      <div id="metrics"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Stream Viewer</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+    />
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Oxanium:wght@200..800&family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&display=swap");
+
+      html {
+        margin: 0;
+        height: 100%;
+        animation: unset !important;
+      }
+
+      * {        
+        box-sizing: border-box;
+        touch-action: manipulation;
+        font-family: "Oxanium", sans-serif;
+        animation: fadein 1s ease 1;
+      }
+      @keyframes fadein {
+        0% {
+          opacity: 0;
+          filter: blur(50px;);
+        }
+        100% {
+          opacity: 1;
+          filter: blur(0px;);
+        }
+      }
+      textarea:focus,
+      input:focus {
+        outline: none;
+      }
+      body {
+        animation: unset !important;
+        margin: 0;
+        background-color: #222;
+        color: #ffffff;
+        display: flex;
+        overflow:hidden;
+        flex-flow: wrap;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        width: 100vw;
+        position: fixed;
+        background-image: linear-gradient(60deg, #000, #111);
+      }
+      body::before {
+        overflow:hidden;
+        position: absolute;
+        width: 100vw;
+        height: 100vh;
+        pointer-events:none;
+        content: "";
+        box-shadow: inset 0 0 4rem 1rem rgba(0, 0, 0, 1);
+        pointer-events: none;
+        background-image: radial-gradient(
+          circle,
+          rgba(255, 255, 255, 0.1) 1px,
+          transparent 1px
+        );
+        background-size: 20px 20px;
+        opacity: 1;
+        z-index: 0;
+        clip-path: inset(0);
+      }
+      /* Connection indicator style */
+      #connectionIndicator {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        font-size: 24px;
+        z-index: 1000;
+        cursor: pointer;
+      }
+      /* Container card */
+      .container {
+        z-index: 1;
+        background-color: #1a1a1a55;
+        backdrop-filter: blur(20px);
+        border-radius: 1rem;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+        display: flex;
+        flex-flow: column;
+        flex-direction: column;
+        align-items: center;
+        width: auto;
+        max-width: calc(100% - 30px - 2rem);
+        max-height: calc(100% - 30px - 2rem);
+        overflow: hidden;
+      }
+      #metrics > p {
+        margin: auto 0.5rem;
+      }
+      #status {
+        display: flex;
+        flex-flow: column;
+        justify-content: center;
+      }
+      .row {
+        width: 100%;
+        justify-content: space-between;
+        display: none;
+        flex-flow: row;
+        gap: 10px;
+        padding: 20px;
+        position: absolute;
+        bottom: 0px;
+      }
+      #metrics * {
+        animation: unset !important;
+      }
+      .row > #metrics {
+        text-align: right;
+      }
+      /* Form styling */
+      form {
+        min-width: 320px;
+        display: flex;
+        flex-flow: column;
+        width: 100%;
+        flex-direction: column;
+      }
+      input,
+      button {
+        display: flex;
+        padding: 10px;
+        border: none;
+        font-size: 16px;
+        width: 100%;
+        border-radius: unset !important;
+      }
+      input {
+        background-color: #2e2e2e;
+        color: #ffffff;
+      }
+      button {
+        font-weight: 600;
+        background-color: #ffeb3b;
+        color: #333;
+        cursor: pointer;
+        display: flex;
+        flex-flow: row;
+        justify-content: space-between;
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+      }
+      button span {
+        margin: auto 0px;
+      }
+      button:hover {
+        color: #ffeb3b;
+        background-color: #111;
+      }
+      button:hover svg > path {
+        stroke: #333;
+        transition: all 0.3s ease;
+      }
+      button svg {
+        margin: auto 0px;
+        transition: all 0.3s ease;
+      }
+      button:hover svg > path {
+        stroke: #ffeb3b;
+        transition: all 0.3s ease;
+      }
+      #status {
+        font-size: 14px;
+        color: #ffeb3b;
+        text-align: center;
+      }
+      #metrics {
+        display: flex;
+        font-size: 14px;
+        color: #ffeb3b;
+        text-align: center;
+      }
+      img {
+        border-radius: 1rem;
+        height: auto;
+        display: none;
+        background: black;
+        min-height: 1rem;
+        max-height: calc(100vh - 4rem);
+        max-width: 100%;
+        text-align: center;
+        mask: radial-gradient(100% 100% at 50% 0, #fff, #00000000);
+      }
+      @media screen and (max-width: 400px) {
+        form {
+          min-width: unset;
+        }
+      }
+      /* Logout button styling */
+      #logoutButton {
+        position: absolute;
+        top: 40px;
+        right: 0px;
+        background-color: #222;
+        padding: 5px 10px;
+        cursor: pointer;
+        z-index: 1100;
+      }
+      @keyframes rotate {
+        from {
+          transform: rotate(0deg);
+        }
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Connection status indicator -->
+    <div id="connectionIndicator"></div>
+
+    <div class="container">
+      <img id="streamImg" alt="" />
+      <div class="row" id="dataRow">
+        <div id="status">Disconnected</div>
+        <div id="metrics"></div>
+      </div>
+      <form id="connectForm">
+        <input
+          type="text"
+          id="serverUrl"
+          placeholder="WebSocket Server URL"
+          value="wss://robot-signal.glitch.me"
+          required
+        />
+        <input type="password" id="password" placeholder="Password" required />
+        <button type="submit">
+          <span>Connect</span>
+          <svg
+            width="24px"
+            height="24px"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M9 7.9313V16.0686C9 16.6744 9 16.9773 9.1198 17.1175C9.22374 17.2393 9.37967 17.3038 9.53923 17.2913C9.72312 17.2768 9.93731 17.0626 10.3657 16.6342L14.4343 12.5656C14.6323 12.3676 14.7313 12.2686 14.7684 12.1544C14.8011 12.054 14.8011 11.9458 14.7684 11.8454C14.7313 11.7313 14.6323 11.6323 14.4343 11.4342L10.3657 7.36561C9.93731 6.93724 9.72312 6.72305 9.53923 6.70858C9.37967 6.69602 9.22374 6.76061 9.1198 6.88231C9 7.02257 9 7.32548 9 7.9313Z"
+              stroke="#333"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+      </form>
     </div>
-    <form id="connectForm">
-      <input type="text" id="serverUrl" placeholder="WebSocket Server URL" 
-             value="wss://robot-signal.glitch.me" required />
-      <input type="password" id="password" placeholder="Password" required />
-      <button type="submit">Connect</button>
-    </form>
-  </div>
 
-  <script>
-    const form = document.getElementById('connectForm');
-    const statusDiv = document.getElementById('status');
-    const metricsDiv = document.getElementById('metrics');
-    const streamImg = document.getElementById('streamImg');
+    <script>
+      const form = document.getElementById("connectForm");
+      const data = document.getElementById("dataRow");
+      const statusDiv = document.getElementById("status");
+      const metricsDiv = document.getElementById("metrics");
+      const streamImg = document.getElementById("streamImg");
+      const connectionIndicator = document.getElementById(
+        "connectionIndicator"
+      );
+      const serverUrlInput = document.getElementById("serverUrl");
+      const passwordInput = document.getElementById("password");
 
-    let ws;
-    let reconnectTimer = null;
-    let pingInterval = null;
-    let lastPingTime = 0;
+      let ws;
+      let pingInterval = null;
+      let lastPingTime = 0;
 
-    let savedServerUrl = '';
-    let savedPassword = '';
+      let savedServerUrl = "";
+      let savedPassword = "";
+      let currentStatus = "offline"; // track current connection state
 
-    // Attempt to connect with given credentials.
-    function connect(serverUrl, password) {
-      // Clear any existing reconnect timer
-      if (reconnectTimer) {
-        clearTimeout(reconnectTimer);
-        reconnectTimer = null;
+      // Helper function to update connection indicator (with raw SVG HTML)
+      function updateConnectionIndicator(status) {
+        currentStatus = status;
+
+        if (status === "online") {
+          connectionIndicator.innerHTML = `<svg width="32px" height="32px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><script xmlns=""/>
+    <path d="M9 12L11 14L15 9.99999M20 12C20 16.4611 14.54 19.6937 12.6414 20.683C12.4361 20.79 12.3334 20.8435 12.191 20.8712C12.08 20.8928 11.92 20.8928 11.809 20.8712C11.6666 20.8435 11.5639 20.79 11.3586 20.683C9.45996 19.6937 4 16.4611 4 12V8.21759C4 7.41808 4 7.01833 4.13076 6.6747C4.24627 6.37113 4.43398 6.10027 4.67766 5.88552C4.9535 5.64243 5.3278 5.50207 6.0764 5.22134L11.4382 3.21067C11.6461 3.13271 11.75 3.09373 11.857 3.07827C11.9518 3.06457 12.0482 3.06457 12.143 3.07827C12.25 3.09373 12.3539 3.13271 12.5618 3.21067L17.9236 5.22134C18.6722 5.50207 19.0465 5.64243 19.3223 5.88552C19.566 6.10027 19.7537 6.37113 19.8692 6.6747C20 7.01833 20 7.41808 20 8.21759V12Z" stroke="#55eb3b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+        } else if (status === "connecting") {
+          connectionIndicator.innerHTML = `<svg style="animation:rotate 1s linear infinite;" width="32px" height="32px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><script xmlns=""/>
+    <path d="M11 2L13 3.99545L12.9408 4.05474M13 18.0001L11 19.9108L11.0297 19.9417M12.9408 4.05474L11 6M12.9408 4.05474C12.6323 4.01859 12.3183 4 12 4C7.58172 4 4 7.58172 4 12C4 14.5264 5.17107 16.7793 7 18.2454M17 5.75463C18.8289 7.22075 20 9.47362 20 12C20 16.4183 16.4183 20 12 20C11.6716 20 11.3477 19.9802 11.0297 19.9417M13 22.0001L11.0297 19.9417" stroke="#ffeb3b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+        } else if (status === "offline") {
+          connectionIndicator.innerHTML = `<svg width="32px" height="32px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><script xmlns=""/>
+    <path d="M12 17.0001H12.01M12 10.0001V14.0001M6.41209 21.0001H17.588C19.3696 21.0001 20.2604 21.0001 20.783 20.6254C21.2389 20.2985 21.5365 19.7951 21.6033 19.238C21.6798 18.5996 21.2505 17.819 20.3918 16.2579L14.8039 6.09805C13.8897 4.4359 13.4326 3.60482 12.8286 3.32987C12.3022 3.09024 11.6978 3.09024 11.1714 3.32987C10.5674 3.60482 10.1103 4.4359 9.19614 6.09805L3.6082 16.2579C2.74959 17.819 2.32028 18.5996 2.39677 19.238C2.46351 19.7951 2.76116 20.2985 3.21709 20.6254C3.7396 21.0001 4.63043 21.0001 6.41209 21.0001Z" stroke="#ff2255" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+        }
       }
-      if (ws) {
-        ws.close();
-      }
 
-      ws = new WebSocket(serverUrl);
+      // Set indicator to connecting when the user types in the server URL field
+      serverUrlInput.addEventListener("input", () => {
+        updateConnectionIndicator("connecting");
+      });
 
-      ws.onopen = () => {
-        statusDiv.innerText = 'Authenticating...';
-        form.style.display = "none";
-        streamImg.style.display = "flex";
-        // Send authentication
-        const authMessage = {
-          type: 'auth',
-          role: 'peer',
-          password: password
-        };
-        ws.send(JSON.stringify(authMessage));
-      };
-
-      ws.onmessage = (event) => {
-        // Handle incoming messages
-        let data;
-        try {
-          data = JSON.parse(event.data);
-        } catch (err) {
-          // If it's not JSON or an error occurred, ignore
-          return;
+      // Logout functionality: disconnect the websocket and remove the stored password
+      function logout() {
+        if (ws) {
+          ws.close();
         }
-
-        // If there's a 'frame' property, it's a JPEG from the source
-        if (data.frame) {
-          streamImg.src = "data:image/jpeg;base64," + data.frame;
-        }
-
-        // Handle typed messages
-        if (data.type === 'info' && data.message) {
-          statusDiv.innerText = data.message;
-        }
-        if (data.type === 'error' && data.message) {
-          statusDiv.innerText = "Error: " + data.message;
-        }
-        if (data.type === 'pong') {
-          // We got a pong; measure round-trip time
-          const now = performance.now();
-          const rttMs = now - data.timestamp;
-          // Now that we have rttMs, send a latencyReport
-          ws.send(JSON.stringify({
-            type: 'latencyReport',
-            latency: rttMs
-          }));
-        }
-        if (data.type === 'metricsUpdate') {
-          // The server is telling us both latencies
-          const sourceToServer = data.sourceToServerLatency.toFixed(1);
-          const serverToPeer = data.serverToPeerLatency.toFixed(1);
-          metricsDiv.innerHTML = `<p>Source→Server: ${sourceToServer}ms</p><p style="color:cornflowerblue;">Server→You: ${serverToPeer}ms</p>`;
-        }
-      };
-
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        localStorage.removeItem("password");
+        passwordInput.value = "";
+        updateConnectionIndicator("offline");
+        // Show login form
         form.style.display = "flex";
-      };
+        data.style.display = "none";
+      }
 
-      ws.onclose = () => {
-        statusDiv.innerText = 'Reconnecting...';
-        // Clear ping interval if any
-        if (pingInterval) {
-          clearInterval(pingInterval);
-          pingInterval = null;
+      connectionIndicator.addEventListener("pointerenter", () => {
+        if (currentStatus === "online") {
+          connectionIndicator.innerHTML = `<svg onclick="logout()" width="32px" height="32px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><script xmlns=""/> 
+          <path d="M9 12H15M20 12C20 16.4611 14.54 19.6937 12.6414 20.683C12.4361 20.79 12.3334 20.8435 12.191 20.8712C12.08 20.8928 11.92 20.8928 11.809 20.8712C11.6666 20.8435 11.5639 20.79 11.3586 20.683C9.45996 19.6937 4 16.4611 4 12V8.21759C4 7.41808 4 7.01833 4.13076 6.6747C4.24627 6.37113 4.43398 6.10027 4.67766 5.88552C4.9535 5.64243 5.3278 5.50207 6.0764 5.22134L11.4382 3.21067C11.6461 3.13271 11.75 3.09373 11.857 3.07827C11.9518 3.06457 12.0482 3.06457 12.143 3.07827C12.25 3.09373 12.3539 3.13271 12.5618 3.21067L17.9236 5.22134C18.6722 5.50207 19.0465 5.64243 19.3223 5.88552C19.566 6.10027 19.7537 6.37113 19.8692 6.6747C20 7.01833 20 7.41808 20 8.21759V12Z" stroke="#ffbe00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/> 
+          </svg>`;
         }
-        // Attempt to reconnect in 3 seconds
-        reconnectTimer = setTimeout(() => {
-          connect(savedServerUrl, savedPassword);
+      });
+
+      connectionIndicator.addEventListener("pointerleave", () => {
+        if (currentStatus === "online") {
+          updateConnectionIndicator("online");
+        }
+      });
+
+      connectionIndicator.addEventListener("mouseleave", () => {
+        if (currentStatus === "online") {
+          updateConnectionIndicator("online");
+        }
+      });
+
+      // Attempt to connect with given credentials.
+      function connect(serverUrl, password) {
+        updateConnectionIndicator("connecting");
+        // Save credentials to localStorage
+        localStorage.setItem("serverUrl", serverUrl);
+        localStorage.setItem("password", password);
+
+        if (ws) {
+          ws.close();
+        }
+
+        ws = new WebSocket(serverUrl);
+
+        ws.onopen = () => {
+          updateConnectionIndicator("online");
+          statusDiv.innerHTML = `<svg style="animation:rotate 1s linear infinite;" width="32px" height="32px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><script xmlns=""/>
+    <path d="M11 2L13 3.99545L12.9408 4.05474M13 18.0001L11 19.9108L11.0297 19.9417M12.9408 4.05474L11 6M12.9408 4.05474C12.6323 4.01859 12.3183 4 12 4C7.58172 4 4 7.58172 4 12C4 14.5264 5.17107 16.7793 7 18.2454M17 5.75463C18.8289 7.22075 20 9.47362 20 12C20 16.4183 16.4183 20 12 20C11.6716 20 11.3477 19.9802 11.0297 19.9417M13 22.0001L11.0297 19.9417" stroke="#ffeb3b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+          form.style.display = "none";
+          data.style.display = "flex";
+          streamImg.style.display = "block";
+          const authMessage = {
+            type: "auth",
+            role: "peer",
+            password: password,
+          };
+          ws.send(JSON.stringify(authMessage));
+        };
+
+        ws.onmessage = (event) => {
+          let data;
+          try {
+            data = JSON.parse(event.data);
+          } catch (err) {
+            return;
+          }
+          if (data.frame) {
+            streamImg.src = "data:image/jpeg;base64," + data.frame;
+          }
+          if (data.type === "info" && data.message) {
+            if (data.message === "Authenticated") {
+              statusDiv.innerHTML = "";
+            } else {
+              statusDiv.innerText = data.message;
+            }
+          }
+          if (data.type === "error" && data.message) {
+            statusDiv.innerText = "Error: " + data.message;
+          }
+          if (data.type === "pong") {
+            const now = performance.now();
+            const rttMs = now - data.timestamp;
+            ws.send(
+              JSON.stringify({
+                type: "latencyReport",
+                latency: rttMs,
+              })
+            );
+          }
+          if (data.type === "metricsUpdate") {
+            const sourceToServer = parseFloat(
+              data.sourceToServerLatency.toFixed(1)
+            );
+            const serverToPeer = parseFloat(
+              data.serverToPeerLatency.toFixed(1)
+            );
+
+            function getColor(latency) {
+              if (latency < 100) return "#55eb3b";
+              else if (latency <= 200) return "#ffbe00";
+              else if (latency > 200) return "#ff2255";
+            }
+
+            const colorSource = getColor(sourceToServer);
+            const colorPeer = getColor(serverToPeer);
+            const colorCombo = getColor(serverToPeer + sourceToServer / 2);
+
+            const happyEmoji = `<svg width="16px" height="16px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<script xmlns=""/>
+<path d="M8.4 13.8C8.4 13.8 9.75 15.6 12 15.6C14.25 15.6 15.6 13.8 15.6 13.8M14.7 9.3H14.709M9.3 9.3H9.309M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12ZM15.15 9.3C15.15 9.54853 14.9485 9.75 14.7 9.75C14.4515 9.75 14.25 9.54853 14.25 9.3C14.25 9.05147 14.4515 8.85 14.7 8.85C14.9485 8.85 15.15 9.05147 15.15 9.3ZM9.75 9.3C9.75 9.54853 9.54853 9.75 9.3 9.75C9.05147 9.75 8.85 9.54853 8.85 9.3C8.85 9.05147 9.05147 8.85 9.3 8.85C9.54853 8.85 9.75 9.05147 9.75 9.3Z" stroke="${colorPeer}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
+            const sadEmoji = `<svg width="16px" height="16px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><script xmlns=""/>
+<path d="M15.6 15.6C15.6 15.6 14.25 13.8 12 13.8C9.75 13.8 8.4 15.6 8.4 15.6M14.7 9.3H14.709M9.3 9.3H9.309M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12ZM15.15 9.3C15.15 9.54853 14.9485 9.75 14.7 9.75C14.4515 9.75 14.25 9.54853 14.25 9.3C14.25 9.05147 14.4515 8.85 14.7 8.85C14.9485 8.85 15.15 9.05147 15.15 9.3ZM9.75 9.3C9.75 9.54853 9.54853 9.75 9.3 9.75C9.05147 9.75 8.85 9.54853 8.85 9.3C8.85 9.05147 9.05147 8.85 9.3 8.85C9.54853 8.85 9.75 9.05147 9.75 9.3Z" stroke="${colorPeer}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
+
+            function getEmotion(latency) {
+              if (latency < 100) return happyEmoji;
+              else if (latency <= 200) return happyEmoji;
+              else if (latency > 200) return sadEmoji;
+            }
+
+            const emotion = getEmotion(serverToPeer);
+
+            metricsDiv.innerHTML = `
+    <svg width="16px" height="16px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <script xmlns=""/>
+      <path d="M6 9V13M10 9V13M20 12H22M20 8L22 6M22 18L20 16M5.2 19H12.8C13.9201 19 14.4802 19 14.908 18.782C15.2843 18.5903 15.5903 18.2843 15.782 17.908C16 17.4802 16 16.9201 16 15.8V8.2C16 7.0799 16 6.51984 15.782 6.09202C15.5903 5.71569 15.2843 5.40973 14.908 5.21799C14.4802 5 13.9201 5 12.8 5H5.2C4.0799 5 3.51984 5 3.09202 5.21799C2.71569 5.40973 2.40973 5.71569 2.21799 6.09202C2 6.51984 2 7.07989 2 8.2V15.8C2 16.9201 2 17.4802 2.21799 17.908C2.40973 18.2843 2.71569 18.5903 3.09202 18.782C3.51984 19 4.07989 19 5.2 19Z" stroke="${colorSource}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <p style="color:${colorSource};">${sourceToServer}ms</p>
+    <svg width="16px" height="16px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <script xmlns=""/>
+      <path d="M15 18C15 19.6569 13.6569 21 12 21C10.3431 21 9 19.6569 9 18M15 18C15 16.3431 13.6569 15 12 15M15 18H21M9 18C9 16.3431 10.3431 15 12 15M9 18H3M12 15V12M9.6 12C7.61177 12 6 10.46 6 8.56026C6 6.98576 7.2 5.53125 9 5.25C9.56463 3.95553 10.9009 3 12.4595 3C14.456 3 16.0878 4.49304 16.2 6.375C17.2595 6.82171 18 7.91806 18 9.10513C18 10.7039 16.6569 12 15 12L9.6 12Z" stroke="${colorCombo}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <p style="color:${colorPeer};">${serverToPeer}ms</p>${emotion}`;
+          }
+        };
+
+        ws.onerror = (error) => {
+          console.error("WebSocket error:", error);
+          updateConnectionIndicator("offline");
+          // Reset interface to show login form
+          form.style.display = "flex";
+          data.style.display = "none";
+          if (pingInterval) {
+            clearInterval(pingInterval);
+            pingInterval = null;
+          }
+        };
+
+        ws.onclose = () => {
+          statusDiv.innerText = "Disconnected";
+          updateConnectionIndicator("offline");
+          // Reset interface to show login form
+          form.style.display = "flex";
+          data.style.display = "none";
+          streamImg.style.display = "none";
+          if (pingInterval) {
+            clearInterval(pingInterval);
+            pingInterval = null;
+          }
+        };
+
+        pingInterval = setInterval(() => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(
+              JSON.stringify({
+                type: "ping",
+                timestamp: performance.now(),
+              })
+            );
+          }
         }, 3000);
+      }
+
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const serverUrl = serverUrlInput.value;
+        const password = passwordInput.value;
+        savedServerUrl = serverUrl;
+        savedPassword = password;
+        connect(serverUrl, password);
+      });
+
+      streamImg.onload = () => {
+        streamImg.style.width = "auto";
+        streamImg.style.height = "auto";
       };
 
-      // Once connected & authenticated, start sending pings every ~3s
-      // We'll start the interval after authentication is confirmed
-      // (i.e., when we get an 'info' or something from the server).
-      // But for simplicity, we can start right away:
-      pingInterval = setInterval(() => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          // Send a ping with current timestamp
-          ws.send(JSON.stringify({
-            type: 'ping',
-            timestamp: performance.now()
-          }));
+      // On page load, auto-connect if credentials are stored
+      window.addEventListener("load", () => {
+        const storedServerUrl = localStorage.getItem("serverUrl");
+        const storedPassword = localStorage.getItem("password");
+        if (storedServerUrl) {
+          serverUrlInput.value = storedServerUrl;
+          savedServerUrl = storedServerUrl;
         }
-      }, 3000);
-    }
-
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const serverUrl = document.getElementById('serverUrl').value;
-      const password = document.getElementById('password').value;
-      savedServerUrl = serverUrl;
-      savedPassword = password;
-      connect(serverUrl, password);
-    });
-
-    // On image load, adjust its display size to match the incoming resolution.
-    streamImg.onload = () => {
-      streamImg.style.width = "auto";
-      streamImg.style.height = "auto";
-      //streamImg.style.width = streamImg.naturalWidth + "px";
-      //streamImg.style.height = streamImg.naturalHeight + "px";
-    };
-  </script>
-</body>
+        if (storedPassword) {
+          passwordInput.value = storedPassword;
+          savedPassword = storedPassword;
+          // Auto-connect using stored credentials
+          connect(savedServerUrl, savedPassword);
+        }
+      });
+    </script>
+  </body>
 </html>
