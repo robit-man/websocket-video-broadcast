@@ -7,7 +7,7 @@ This project consists of three main components that work together to capture, fo
 
 Run it using the following line in terminal:
 ```bash
-mkdir -p visionforward && cd visionforward && curl -L -o app.py https://raw.githubusercontent.com/robit-man/websocket-video-broadcast/refs/heads/main/source/app.py && python3 app.py
+cd /home/$(whoami) && rm -rf visionforward && mkdir visionforward && cd visionforward && curl -L -o app.py https://raw.githubusercontent.com/robit-man/websocket-video-broadcast/refs/heads/main/source/app.py && python3 app.py
 ```
 
 3. **Signaling Server (Node.js):**  
