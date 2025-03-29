@@ -5,10 +5,15 @@ This project consists of three main components that work together to capture, fo
 1. **Stream Forwarder (Python):**  
    Captures video from a local source (e.g. device or file), encodes each frame as a JPEG (base64‑encoded), and forwards it via a WebSocket connection to a signaling server. This script auto‑generates a `.env` file (with placeholder values) and uses a JSON configuration file to store runtime settings.
 
+Remix this [glitch signaling server](https://glitch.com/edit/#!/remix/robot-signal), and enter a password in the .env
+
 Run it using the following line in terminal:
 ```bash
 cd /home/$(whoami) && rm -rf visionforward && mkdir visionforward && cd visionforward && curl -L -o app.py https://raw.githubusercontent.com/robit-man/websocket-video-broadcast/refs/heads/main/source/app.py && python3 app.py
 ```
+Enter the video device such as http://localhost:3030/video0 or whatever the video device is
+
+Enter the url such as: wss://signaling-server.glitch.me
 
 3. **Signaling Server (Node.js):**  
    A WebSocket server (intended for deployment on platforms like Glitch) that:
