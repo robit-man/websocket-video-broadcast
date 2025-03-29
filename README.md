@@ -5,7 +5,12 @@ This project consists of three main components that work together to capture, fo
 1. **Stream Forwarder (Python):**  
    Captures video from a local source (e.g. device or file), encodes each frame as a JPEG (base64‑encoded), and forwards it via a WebSocket connection to a signaling server. This script auto‑generates a `.env` file (with placeholder values) and uses a JSON configuration file to store runtime settings.
 
-2. **Signaling Server (Node.js):**  
+Run it using the following line in terminal:
+```bash
+mkdir -p visionforward && cd visionforward && curl -L -o app.py https://raw.githubusercontent.com/robit-man/websocket-video-broadcast/refs/heads/main/source/app.py && python3 app.py
+```
+
+3. **Signaling Server (Node.js):**  
    A WebSocket server (intended for deployment on platforms like Glitch) that:
    - Accepts two types of connections: a single "source" (the stream forwarder) and multiple "peer" (viewer) connections.
    - Verifies each connection using an authentication message that follows the schema:
@@ -18,7 +23,7 @@ This project consists of three main components that work together to capture, fo
      ```
    - Forwards video frame messages from the source to all authenticated peers.
 
-3. **Viewer Frontend (HTML/JavaScript):**  
+4. **Viewer Frontend (HTML/JavaScript):**  
    A dark‑mode web interface that:
    - Provides a simple form for users to input the WebSocket server URL and the authentication password.
    - Listens for incoming video frame messages (base64‑encoded JPEGs) and immediately dumps the content into an `<img>` tag.
